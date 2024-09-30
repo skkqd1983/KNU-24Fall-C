@@ -5,7 +5,7 @@
 #include <conio.h> // 콘솔 입출력 함수 제공
 
 #define COUT GetStdHandle(STD_OUTPUT_HANDLE) // 표준 출력 디바이스
-#define Map_X 80 // 맵 X크기
+#define Map_X 40 // 맵 X크기
 #define Map_Y 20 // 맵 Y크기
 
 /* 콘솔 색상 코드 */
@@ -21,6 +21,7 @@
 #define Empty 0
 #define Ceilling 1
 #define Wall 2
+#define Food 3
 #define Snake_Head -1
 #define Snake_Body -2
 
@@ -35,13 +36,37 @@ int mapCopy[Map_Y][Map_X];
 int body_count = 3;
 int bodyXY[2000][3] = { {40, 10}, { 41, 10 }, {42, 10} };
 int body_move[2000] = { 0, };
+int foodX = 0, foodY = 0;
 
 
 void map_reset();
 void draw_map();
 void input_game();
 void snake_move();
+void add_body();
+void food_spawn();
 
+typedef enum { NOCURSOR, SOLIDCURSOR, NORMALCURSOR } CURSOR_TYPE; //커서숨기는 함수에 사용되는 열거형 
+
+void setcursortype(CURSOR_TYPE c) { //커서숨기는 함수 
+	CONSOLE_CURSOR_INFO CurInfo;
+
+	switch (c) {
+	case NOCURSOR:
+		CurInfo.dwSize = 1;
+		CurInfo.bVisible = FALSE;
+		break;
+	case SOLIDCURSOR:
+		CurInfo.dwSize = 100;
+		CurInfo.bVisible = TRUE;
+		break;
+	case NORMALCURSOR:
+		CurInfo.dwSize = 20;
+		CurInfo.bVisible = TRUE;
+		break;
+	}
+	SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &CurInfo);
+}
 
 void mouseXY(int x, int y) { // 콘솔 마우스 위치 조정 함수 
 	COORD pos;
@@ -51,7 +76,10 @@ void mouseXY(int x, int y) { // 콘솔 마우스 위치 조정 함수
 }
 
 void main() {
+	srand((unsigned)time(NULL));
+	setcursortype(NOCURSOR); //커서 없앰 
 	map_reset();
+	food_spawn();
 	draw_map();
 	while (1) {
 		input_game();
@@ -116,6 +144,9 @@ void draw_map() {
 				case Wall:
 					printf("|");
 					break;
+				case Food:
+					printf("#");
+					break;
 				default:
 					break;
 				}
@@ -148,31 +179,13 @@ void input_game() {
 			direction = Down;
 		}
 		else if (key == '\r') {
-			body_count += 1;
-			switch (body_move[body_count-2]) {
-			case Left:
-				bodyXY[body_count - 1][0] = bodyXY[body_count - 2][0] + 1;
-				bodyXY[body_count - 1][1] = bodyXY[body_count - 2][1];
-				break;
-			case Right:
-				bodyXY[body_count - 1][0] = bodyXY[body_count - 2][0] - 1;
-				bodyXY[body_count - 1][1] = bodyXY[body_count - 2][1];
-				break;
-			case Up:
-				bodyXY[body_count - 1][0] = bodyXY[body_count - 2][0];
-				bodyXY[body_count - 1][1] = bodyXY[body_count - 2][1] + 1;
-				break;
-			case Down:
-				bodyXY[body_count - 1][0] = bodyXY[body_count - 2][0];
-				bodyXY[body_count - 1][1] = bodyXY[body_count - 2][1] - 1;
-				break;
-			}
+
 		}
 	}
 }
 
 void snake_move() {
-	int i, j;
+	int i;
 
 	Sleep(200); // 딜레이
 
@@ -216,6 +229,10 @@ void snake_move() {
 		}
 
 		if (i == 0) {
+			if (mapOrigin[bodyXY[i][1]][bodyXY[i][0]] == Food) {
+				add_body();
+				food_spawn();
+			}
 			mapOrigin[bodyXY[i][1]][bodyXY[i][0]] = Snake_Head;
 		}
 		else {
@@ -231,10 +248,48 @@ void snake_move() {
 	}
 	printf("\n");
 
+	printf("Food : %d, %d\n", foodX, foodY);
+
 	for (i = 0; i < body_count; i++) {
 		printf("%d, ", body_move[i]);
 	}
 
+}
+
+void add_body() {
+	body_count += 1;
+	switch (body_move[body_count - 2]) {
+	case Left:
+		bodyXY[body_count - 1][0] = bodyXY[body_count - 2][0] + 1;
+		bodyXY[body_count - 1][1] = bodyXY[body_count - 2][1];
+		break;
+	case Right:
+		bodyXY[body_count - 1][0] = bodyXY[body_count - 2][0] - 1;
+		bodyXY[body_count - 1][1] = bodyXY[body_count - 2][1];
+		break;
+	case Up:
+		bodyXY[body_count - 1][0] = bodyXY[body_count - 2][0];
+		bodyXY[body_count - 1][1] = bodyXY[body_count - 2][1] + 1;
+		break;
+	case Down:
+		bodyXY[body_count - 1][0] = bodyXY[body_count - 2][0];
+		bodyXY[body_count - 1][1] = bodyXY[body_count - 2][1] - 1;
+		break;
+	}
+	body_move[body_count - 1] = body_move[body_count - 2];
+}
+
+void food_spawn() {
+	while (1) {
+		foodX = rand() % (Map_X - 2) + 1;
+		foodY = rand() % (Map_Y - 2) + 1;
+
+		if (mapOrigin[foodY][foodX] == Empty) {
+			break;
+		}
+	}
+
+	mapOrigin[foodY][foodX] = 3;
 }
 
 
