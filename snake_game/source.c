@@ -35,6 +35,8 @@ int mapOrigin[Map_Y][Map_X];											// 실질적 맵
 int mapCopy[Map_Y][Map_X];												// 맵의 복사본(변경 전 행태를 가짐)
 int foodX = 0, foodY = 0;												// 음식의 위치 변수
 
+int RW = 0, LW = 0;
+
 void map_reset();														// 최초 시작시 맵 기본 설정 함수
 void draw_map();														// 맵의 요소가 변경될 시 반영하는 함수	
 void input_game();														// 키보드의 입력으로 뱀의 방향을 부여하는 함수
@@ -227,16 +229,16 @@ void input_game() {
 	if (_kbhit()) {
 		char key = getch(); // getch()는 키보드의 하나 키를 입력 받을 수 있게 하는 함수
 
-		if (gameEnd != 1 && (key == 'a' || key == 'A') && direction != Right) {
+		if (gameEnd != 1 && (key == 'a' || key == 'A') && direction != Right) { // 1
 			direction = Left;
 		}
-		else if (gameEnd != 1 && (key == 'd' || key == 'D') && direction != Left) {
+		else if (gameEnd != 1 && (key == 'd' || key == 'D') && direction != Left) { // 2
 			direction = Right;
 		}
-		else if (gameEnd != 1 && (key == 'w' || key == 'W') && direction != Down) {
+		else if (gameEnd != 1 && (key == 'w' || key == 'W') && direction != Down) { // 3
 			direction = Up;
 		}
-		else if (gameEnd != 1 && (key == 's' || key == 'S') && direction != Up) {
+		else if (gameEnd != 1 && (key == 's' || key == 'S') && direction != Up) { // 4
 			direction = Down;
 		}
 		else if (key == '\r') {
@@ -288,15 +290,17 @@ void snake_move() {
 		}
 
 		if (mapOrigin[cur->Y][cur->X] == Wall) { // 뱀이 이동 중 벽과 만나면 좌표를 반대편으로 이동
-			if (cur->Move = Left) {
-				cur->X = Map_X - 2;
-			}
-			else {
+			if (cur->X == Map_X-1) {
 				cur->X = 1;
+				RW += 1;
+			}
+			else if (cur->X == 0) {
+				cur->X = Map_X - 2;
+				LW += 1;
 			}
 		}
 		else if (mapOrigin[cur->Y][cur->X] == Ceilling) {
-			if (cur->Move = Up) {
+			if (cur->Move == Up) {
 				cur->Y = Map_Y - 2;
 			}
 			else {
@@ -335,10 +339,9 @@ void snake_move() {
 		printf("%d, ", cur->Move);
 		cur = cur->next_link;
 	}
-
 	printf("\n");
-
-	printf("Score : %d", score);
+	printf("Score : %d\n", score);
+	printf("왼쪽 벽 : %d | 오른쪽 벽 : %d", LW, RW);
 
 }
 
