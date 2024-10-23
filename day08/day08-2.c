@@ -56,5 +56,5 @@ void movePointer(void* array) {
 			break;
 		}
 	}
-	printf("종료 위치 : (%d, %d), 배열의 값 : %d", num / 10, num % 10, *((int*)array + num));
+	printf("종료 위치 : (%d, %d), 배열의 값 : %d\n", num / 10, num % 10, *((int*)array + num));
 }
