@@ -27,6 +27,7 @@ void main() {
 		printf("ªÛ«∞ ID : ");
 		scanf_s("%d", &product[i].ID);
 		if (product[i].ID == 0) {
+			printf("\n");
 			printProduct();
 			return;
 		}
