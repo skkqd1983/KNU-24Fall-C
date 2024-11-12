@@ -202,7 +202,6 @@ void gamePlayingScreen() {
 	draw_map();
 	while (gameFlag == 1) {
 		input_game();
-		snake_move();
 	}
 }
 
@@ -350,7 +349,14 @@ void draw_map() {	// 이전 맵과 비교하여 다른 부분을 작성
 				switch (mapOrigin[j][i])
 				{
 				case Snake_Head:
-					printf("◇");
+					if (gameEnd == 1) {
+						SetConsoleTextAttribute(COUT, RED);
+						printf("◇");
+						SetConsoleTextAttribute(COUT, WHITE);
+					}
+					else {
+						printf("◇");
+					}
 					break;
 				case Snake_Body:
 					printf("*");
@@ -402,6 +408,10 @@ void input_game() {
 
 		}
 	}
+
+	if (gameEnd != 1) {
+		snake_move();
+	}
 }
 
 void snake_move() {
@@ -429,7 +439,9 @@ void snake_move() {
 
 	while (cur != NULL) { // 맵에서 원래 자리 제거, 각 body좌표 수정
 
-		mapOrigin[cur->Y][cur->X] = Empty;
+		if (cur == head->next_link || (cur != head->next_link && mapOrigin[cur->Y][cur->X] != Snake_Head)) {
+			mapOrigin[cur->Y][cur->X] = Empty;
+		}
 
 		switch (cur->Move) {
 		case Left:
@@ -466,7 +478,10 @@ void snake_move() {
 		}
 
 		if (cur == head->next_link) {
-			if (mapOrigin[cur->Y][cur->X] == Food) { // 뱀이 이동할 자리에 'Food'가 있을 경우 body추가, 'Food'리스폰
+			if (mapOrigin[cur->Y][cur->X] == Snake_Body) { // 뱀이 꼬리와 접촉?
+				gameEnd = 1;
+			}
+			else if (mapOrigin[cur->Y][cur->X] == Food) { // 뱀이 이동할 자리에 'Food'가 있을 경우 body추가, 'Food'리스폰
 				score += 1;
 				add_body();
 				food_spawn();
@@ -474,7 +489,12 @@ void snake_move() {
 			mapOrigin[cur->Y][cur->X] = Snake_Head;
 		}
 		else {
-			mapOrigin[cur->Y][cur->X] = Snake_Body;
+			if (mapOrigin[cur->Y][cur->X] == Snake_Head) {
+				mapOrigin[cur->Y][cur->X] = Snake_Head;
+			}
+			else {
+				mapOrigin[cur->Y][cur->X] = Snake_Body;
+			}
 		}
 		cur = cur->next_link; // cur를 다음 body으로 이전
 	}
@@ -498,7 +518,10 @@ void snake_move() {
 	}
 	printf("\n");
 	printf("Score : %d\n", score);
-	printf("왼쪽 벽 : %d | 오른쪽 벽 : %d", LW, RW);
+	printf("왼쪽 벽 : %d | 오른쪽 벽 : %d\n", LW, RW);
+	if (gameEnd == 1) {
+		printf("게임 종료!!!");
+	}
 
 }
 
