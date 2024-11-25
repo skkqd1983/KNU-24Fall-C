@@ -27,6 +27,7 @@
 #define Ceilling 1
 #define Wall 2
 #define Food 3
+#define Spike_Wall 4
 #define Snake_Head -1
 #define Snake_Body -2
 
@@ -57,12 +58,14 @@ int direction = Left;													// 뱀의 방향
 int mapOrigin[Map_Y][Map_X];											// 실질적 맵
 int mapCopy[Map_Y][Map_X];												// 맵의 복사본(변경 전 행태를 가짐)
 int foodX = 0, foodY = 0;												// 음식의 위치 변수
+int spike_wallX = 0, spike_wallY = 0;									// 가시벽의 위치 변수
+int spike_spawn_delay;													// 가시벽 소환 딜레이 변수
 
 int RW = 0, LW = 0; // 테스트용 변수
 
 int game_mod = Solo_mod;												// 게임 모드
 int difficulty_level = Easy;											// 게임의 난이도
-int select_menu = Game_mod;													// 메뉴에서 선택중인 항목
+int select_menu = Game_mod;												// 메뉴에서 선택중인 항목
 
 #pragma endregion
 
@@ -72,6 +75,7 @@ void input_game();														// 키보드의 입력으로 뱀의 방향을 부여하는 함수
 void snake_move();														// 뱀의 움직임을 제어하는 함수
 void add_body();														// 뱀의 몸을 늘리는 함수
 void food_spawn();														// 음식 섭취 시 재소환하는 함수
+void spike_wall_spawn();												// 가시벽을 일정 시간마다 소환하는 함수
 void print_game_menu();													// 게임 메뉴 출력
 void gameStartScreen();
 void gamePlayingScreen();
@@ -373,6 +377,9 @@ void draw_map() {	// 이전 맵과 비교하여 다른 부분을 작성
 				case Food:
 					printf("#");
 					break;
+				case Spike_Wall:
+					printf("▩");
+					break;
 				default:
 					break;
 				}
@@ -415,9 +422,16 @@ void input_game() {
 }
 
 void snake_move() {
-	int i;
 
 	Sleep(200/difficulty_level); // 딜레이
+
+	if (spike_spawn_delay == 15-difficulty_level) {
+		spike_wall_spawn();
+		spike_spawn_delay = 0;
+	}
+	else {
+		spike_spawn_delay += 1;
+	}
 
 	struct NODE* cur = head->next_link;
 	snake_move_point(); //뱀 이동 방향 이전
@@ -478,7 +492,7 @@ void snake_move() {
 		}
 
 		if (cur == head->next_link) {
-			if (mapOrigin[cur->Y][cur->X] == Snake_Body) { // 뱀이 꼬리와 접촉?
+			if (mapOrigin[cur->Y][cur->X] == Snake_Body || mapOrigin[cur->Y][cur->X] == Spike_Wall) { // 뱀이 꼬리, 가시벽과 접촉?
 				gameEnd = 1;
 			}
 			else if (mapOrigin[cur->Y][cur->X] == Food) { // 뱀이 이동할 자리에 'Food'가 있을 경우 body추가, 'Food'리스폰
@@ -543,7 +557,7 @@ void add_body() {
 	}
 }
 
-void food_spawn() {
+void food_spawn() {							// 음식 소환
 	while (1) {
 		foodX = rand() % (Map_X - 2) + 1;
 		foodY = rand() % (Map_Y - 2) + 1;
@@ -553,7 +567,20 @@ void food_spawn() {
 		}
 	}
 
-	mapOrigin[foodY][foodX] = 3;
+	mapOrigin[foodY][foodX] = Food;
+}
+
+void spike_wall_spawn() {					// 가시벽 소환
+	while (1) {
+		spike_wallX = rand() % (Map_X - 2) + 1;
+		spike_wallY = rand() % (Map_Y - 2) + 1;
+
+		if (mapOrigin[spike_wallY][spike_wallX] == Empty) {
+			break;
+		}
+	}
+
+	mapOrigin[spike_wallY][spike_wallX] = Spike_Wall;
 }
 
 
