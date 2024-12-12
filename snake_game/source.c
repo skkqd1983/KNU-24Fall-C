@@ -30,6 +30,8 @@
 #define Spike_Wall 4
 #define Snake_Head -1
 #define Snake_Body -2
+#define Enemy_Snake_Head -3
+#define Enemy_Snake_Body -4
 
 /* 게임 모드 */
 #define Solo_mod 1
@@ -43,6 +45,11 @@
 /* 현재 선택한 목록 */
 #define Game_mod 1
 #define Difficulty_level 2
+#define Game_end 3
+
+/*적과 나 구분*/
+#define Me 0
+#define Enemy 1
 
 #pragma endregion
 
@@ -59,7 +66,9 @@ int mapOrigin[Map_Y][Map_X];											// 실질적 맵
 int mapCopy[Map_Y][Map_X];												// 맵의 복사본(변경 전 행태를 가짐)
 int foodX = 0, foodY = 0;												// 음식의 위치 변수
 int spike_wallX = 0, spike_wallY = 0;									// 가시벽의 위치 변수
-int spike_spawn_delay;													// 가시벽 소환 딜레이 변수
+int spike_spawn_delay = 0;													// 가시벽 소환 딜레이 변수
+int is_dash = 0;														// 대쉬 사용 유무 변수
+int dash_limit = 30;													// 대쉬 최대 사용량
 
 int RW = 0, LW = 0; // 테스트용 변수
 
@@ -80,10 +89,12 @@ void print_game_menu();													// 게임 메뉴 출력
 void gameStartScreen();
 void gamePlayingScreen();
 void inputGameMenu();
+void game_reset();														// 게임 종료시 게임 요소를 초기화
 
-#pragma region 노드 관련 구조체, 몸통 길이 조절
+#pragma region 뱀 노드 관련 구조체, 몸통 길이 조절
 
 struct NODE* head;
+struct NODE* enemy_head;
 
 struct NODE {															//기본 노드 선언
 	int X;
@@ -93,16 +104,21 @@ struct NODE {															//기본 노드 선언
 	struct NODE* next_link;
 };
 
-struct NODE* last_node() {												// 마지막 노드 확인
+struct NODE* last_node(int is_enemy) {	
+											// 마지막 노드 확인
 	struct NODE* cur = head;
+	if (is_enemy == 1) {
+		struct NODE* cur = enemy_head;
+	}
+
 	while (cur->next_link != NULL) {
 		cur = cur->next_link;
 	}
 	return cur;
 }
 
-struct NODE* create_node(int X, int Y, int Move) {						// 노드 생성
-	struct NODE* last = last_node(); // 마지막 노드 저장
+struct NODE* create_node(int X, int Y, int Move, int is_enemy) {						// 노드 생성
+	struct NODE* last = last_node(is_enemy); // 마지막 노드 저장
 	struct NODE* new_node = (struct NODE*)malloc(sizeof(struct NODE));
 	new_node->X = X;
 	new_node->Y = Y;
@@ -112,14 +128,14 @@ struct NODE* create_node(int X, int Y, int Move) {						// 노드 생성
 	return new_node;
 }
 
-void insert_node_last(struct NODE* new_node) {							// 마지막에 노드 추가
-	struct NODE* last = last_node();
+void insert_node_last(struct NODE* new_node, int is_enemy) {							// 마지막에 노드 추가
+	struct NODE* last = last_node(is_enemy);
 	last->next_link = new_node;
 }
 
-void snake_move_point() {												// 노드 Move값 이전
+void snake_move_point(int is_enemy) {												// 노드 Move값 이전
 	int move_data;
-	struct NODE* cur = last_node();
+	struct NODE* cur = last_node(is_enemy);
 	struct NODE* before_cur = cur->before_link;
 	while (before_cur != head) {										// before_link가 head라면 뱀 머리이기에 따로 Move값 지정
 		cur->Move = before_cur->Move;
@@ -129,10 +145,19 @@ void snake_move_point() {												// 노드 Move값 이전
 
 }
 
-int delete_node() {														// 노드 전부 삭제
-	while (last_node() != NULL) {
-		struct NODE* cur = last_node();
+int delete_node(int is_enemy) {														// 노드 전부 삭제
+	struct NODE* prev = head;
+	struct NODE* cur = head->next_link;
+
+	if (is_enemy == 1) {
+		struct NODE* prev = enemy_head;
+		struct NODE* cur = enemy_head->next_link;
+	}
+
+	while (cur != NULL) {
+		prev->next_link = cur->next_link;
 		free(cur);
+		cur = prev->next_link;
 	}
 	return 0;
 }
@@ -216,14 +241,20 @@ void print_game_menu() {
 
 	printf("[게임 메뉴]\n");
 	printf("▶솔로 모드\n");
-	printf("▷Easy");
+	printf("▷Easy\n");
+	printf("▷게임종료");
 }
 
 void inputGameMenu() {
 	char key = getch(); // getch()는 키보드의 하나 키를 입력 받을 수 있게 하는 함수
 
 	if (key == 'w' || key == 'W') {
-		if (select_menu == Difficulty_level) {
+		if (select_menu == Game_end) {
+			select_menu = Difficulty_level;
+			mouseXY(0, 5);
+			printf("▶\n\r▷");
+		}
+		else if (select_menu == Difficulty_level) {
 			select_menu = Game_mod;
 			mouseXY(0, 4);
 			printf("▶\n\r▷");
@@ -233,6 +264,11 @@ void inputGameMenu() {
 		if (select_menu == Game_mod) {
 			select_menu = Difficulty_level;
 			mouseXY(0, 4);
+			printf("▷\n\r▶");
+		}
+		else if (select_menu == Difficulty_level) {
+			select_menu = Game_end;
+			mouseXY(0, 5);
 			printf("▷\n\r▶");
 		}
 	}
@@ -297,7 +333,8 @@ void inputGameMenu() {
 		case Game_mod:
 			gameFlag = 1;
 			break;
-		case Difficulty_level:
+		case Game_end:
+			mouseXY(0, 7);
 			exit(0); // 프로그램을 종료 하는 함수
 			break;
 		}
@@ -307,14 +344,16 @@ void inputGameMenu() {
 void map_reset() {
 	int i, j;
 
-	for (i = 0; i < 3; i++) {
-		insert_node_last(create_node(20 + i, 10, Left));
-	}
+	delete_node(Me);
 
-	struct NODE* cur = head;
-	while (cur->next_link != NULL) {									// 최초 방향을 Left로 지정
-		cur = cur->next_link;
-		cur->Move = Left;
+	direction = Left;
+	spike_spawn_delay = 0;
+
+	for (i = 0; i < 3; i++) {
+		insert_node_last(create_node(20 + i, 10, Left, Me), Me);				// 최초 방향을 Left로 지정
+		if (Game_mod == Battle_mod) {											
+			insert_node_last(create_node(20 + i, 17, Left, Enemy), Enemy);		// 게임 모드가 Battle모드라면 Enemy뱀 추가
+		}
 	}
 
 	for (i = 0; i < Map_X; i++) {
@@ -365,6 +404,18 @@ void draw_map() {	// 이전 맵과 비교하여 다른 부분을 작성
 				case Snake_Body:
 					printf("*");
 					break;
+
+				case Enemy_Snake_Head:
+					SetConsoleTextAttribute(COUT, RED);
+					printf("◇");
+					SetConsoleTextAttribute(COUT, WHITE);
+					break;
+				case Enemy_Snake_Body:
+					SetConsoleTextAttribute(COUT, RED);
+					printf("*");
+					SetConsoleTextAttribute(COUT, WHITE);
+					break;
+
 				case Empty:
 					printf(" ");
 					break;
@@ -378,7 +429,9 @@ void draw_map() {	// 이전 맵과 비교하여 다른 부분을 작성
 					printf("#");
 					break;
 				case Spike_Wall:
+					SetConsoleTextAttribute(COUT, RED);
 					printf("▩");
+					SetConsoleTextAttribute(COUT, WHITE);
 					break;
 				default:
 					break;
@@ -411,8 +464,14 @@ void input_game() {
 		else if (gameEnd != 1 && (key == 's' || key == 'S') && direction != Up) { // 4
 			direction = Down;
 		}
+		else if (gameEnd != 1 && (key == 'l' || key == 'L') && dash_limit > 0) { // 대쉬
+			is_dash = 1;
+		}
 		else if (key == '\r') {
-
+			if (best_score < score) {
+				best_score = score;
+			}
+			gameFlag = 0;
 		}
 	}
 
@@ -423,9 +482,47 @@ void input_game() {
 
 void snake_move() {
 
-	Sleep(200/difficulty_level); // 딜레이
+	if (is_dash == 0) {
+		switch (difficulty_level)
+		{
+		case Easy:
+			Sleep(200);
+			break;
+		case Normal:
+			Sleep(150);
+			break;
+		case Hard:
+			if (150 - score > 50) {
+				Sleep(150 - score);
+			}
+			else {
+				Sleep(50);
+			}
+		}
+	}
+	else if (dash_limit > 0) {
+		switch (difficulty_level)
+		{
+		case Easy:
+			Sleep(200-50);
+			break;
+		case Normal:
+			Sleep(150- 50);
+			break;
+		case Hard:
+			if (150 - score - 30 > 50) {
+				Sleep(150 - score - 30);
+			}
+			else {
+				Sleep(50);
+			}
+		}
+		dash_limit--;
+	}
 
-	if (spike_spawn_delay == 15-difficulty_level) {
+	//Sleep
+
+	if (spike_spawn_delay == 50-difficulty_level) {
 		spike_wall_spawn();
 		spike_spawn_delay = 0;
 	}
@@ -434,7 +531,7 @@ void snake_move() {
 	}
 
 	struct NODE* cur = head->next_link;
-	snake_move_point(); //뱀 이동 방향 이전
+	snake_move_point(Me); //뱀 이동 방향 이전
 
 
 	if (direction == Left) {
@@ -540,19 +637,19 @@ void snake_move() {
 }
 
 void add_body() {
-	struct NODE* cur = last_node();
+	struct NODE* cur = last_node(Me);
 	switch (cur->Move) {
 	case Left:
-		insert_node_last(create_node(cur->X + 1, cur->Y, Left));
+		insert_node_last(create_node(cur->X + 1, cur->Y, Left, Me), Me);
 		break;
 	case Right:
-		insert_node_last(create_node(cur->X - 1, cur->Y, Right));
+		insert_node_last(create_node(cur->X - 1, cur->Y, Right, Me), Me);
 		break;
 	case Up:
-		insert_node_last(create_node(cur->X, cur->Y + 1, Up));
+		insert_node_last(create_node(cur->X, cur->Y + 1, Up, Me), Me);
 		break;
 	case Down:
-		insert_node_last(create_node(cur->X, cur->Y - 1, Down));
+		insert_node_last(create_node(cur->X, cur->Y - 1, Down, Me), Me);
 		break;
 	}
 }
@@ -571,11 +668,21 @@ void food_spawn() {							// 음식 소환
 }
 
 void spike_wall_spawn() {					// 가시벽 소환
+	struct NODE* cur = head->next_link;
 	while (1) {
 		spike_wallX = rand() % (Map_X - 2) + 1;
 		spike_wallY = rand() % (Map_Y - 2) + 1;
 
 		if (mapOrigin[spike_wallY][spike_wallX] == Empty) {
+			if (direction == Left && cur->Y != spike_wallX) {
+
+			}
+			else if (direction == Left && cur->Y != spike_wallX) {
+
+			}
+			else if (direction == Right && cur->Y != spike_wallX) {
+			
+			}
 			break;
 		}
 	}
